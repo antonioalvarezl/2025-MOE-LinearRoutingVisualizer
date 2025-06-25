@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MoE Spherical Partitions - Advanced Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.26.0/plotly.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #0f0f23, #1a1a2e, #16213e);
+            color: white;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            font-size: 2.5em;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .controls {
+            background: rgba(255,255,255,0.08);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            min-width: 150px;
+        }
+        .control-group label {
+            margin-bottom: 8px;
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #e0e0e0;
+        }
+        .control-group input, .control-group select {
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.15);
+            color: white;
+            font-size: 14px;
+        }
+        .control-group input::placeholder {
+            color: rgba(255,255,255,0.6);
+        }
+        .value-display {
+            font-weight: bold;
+            color: #4ecdc4;
+            margin-left: 10px;
+        }
+        button {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a24);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            margin: 5px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+        }
+        .plot-container {
+            background: rgba(255,255,255,0.03);
+            border-radius: 20px;
+            padding: 20px;
+            margin: 15px 0;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-panel {
+            background: rgba(0,255,150,0.1);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            border-left: 4px solid #4ecdc4;
+        }
+        .stats-panel {
+            background: rgba(255,255,255,0.08);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 10px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 8px;
+        }
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #4ecdc4;
+        }
+        .stat-label {
+            font-size: 0.9em;
+            color: #e0e0e0;
+        }
+        .expert-legend {
+            background: rgba(255,255,255,0.08);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+        .expert-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .expert-item {
+            padding: 8px;
+            border-radius: 6px;
+            text-align: center;
+            font-size: 0.85em;
+            font-weight: 600;
+            border: 2px solid rgba(255,255,255,0.2);
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+        }
+        .warning {
+            background: rgba(255,165,0,0.2);
+            border: 1px solid rgba(255,165,0,0.5);
+            padding: 10px;
+            border-radius: 8px;
+            margin: 10px 0;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🧠 MoE Spherical Partitions Visualizer</h1>
+            <p>Interactive exploration of (m,k)-Mixture of Experts on S²</p>
+        </div>
+        
+        <div class="info-panel">
+            <strong>🎯 Expert-based Spherical Partitioning:</strong><br>
+            • <strong>Routing Regions:</strong> Each region shows exactly k active experts (clearly labeled)<br>
+            • <strong>MLP Sub-cells:</strong> Fine partitions within routing regions based on ReLU activations (p neurons)<br>
+            • <strong>Boundaries:</strong> Thick black lines separate different regions<br>
+            • <strong>Degenerate Cases:</strong> p=0 (routing only), k=0 (no experts), canonical vectors available
+        </div>
+
+        <div class="controls">
+            <div class="control-row">
+                <div class="control-group">
+                    <label>Experts (m):</label>
+                    <input type="range" id="numExperts" min="1" max="15" value="6" step="1">
+                    <span class="value-display" id="numExpertsValue">6</span>
+                </div>
+                
+                <div class="control-group">
+                    <label>Active per Region (k):</label>
+                    <input type="range" id="granularity" min="0" max="8" value="2" step="1">
+                    <span class="value-display" id="granularityValue">2</span>
+                </div>
+                
+                <div class="control-group">
+                    <label>MLP Neurons (p):</label>
+                    <input type="range" id="mlpRows" min="0" max="12" value="4" step="1">
+                    <span class="value-display" id="mlpRowsValue">4</span>
+                </div>
+                
+                <div class="control-group">
+                    <label>Resolution:</label>
+                    <select id="resolution">
+                        <option value="60">Fast (60)</option>
+                        <option value="100">Standard (100)</option>
+                        <option value="150" selected>High (150)</option>
+                        <option value="200">Ultra (200)</option>
+                        <option value="300">Extreme (300)</option>
+                        <option value="400">Maximum (400)</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <div class="checkbox-group">
+                    <input type="checkbox" id="canonicalVectors">
+                    <label for="canonicalVectors">Use Canonical Vectors (m=3, r_i = e_i)</label>
+                </div>
+                
+                <div class="checkbox-group">
+                    <input type="checkbox" id="showBoundariesCheck" checked>
+                    <label for="showBoundariesCheck">Show Boundaries</label>
+                </div>
+            </div>
+            
+            <div class="control-row">
+                <button onclick="generateNewConfiguration()">🎲 New Random Config</button>
+                <button onclick="generatePresetExamples()">📊 Interesting Presets</button>
+                <button onclick="loadCanonicalExample()">🎯 Canonical Example</button>
+                <button onclick="exportConfiguration()">💾 Export Config</button>
+                <button onclick="showHelp()">❓ Help</button>
+            </div>
+            
+            <div id="warningPanel"></div>
+        </div>
+
+        <div id="plotContainer" class="plot-container"></div>
+        
+        <div id="expertLegend" class="expert-legend"></div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentConfig = null;
+        let plotDiv = document.getElementById('plotContainer');
+        let currentTraces = [];
+
+        // Update display values and constraints
+        document.getElementById('numExperts').oninput = function() {
+            document.getElementById('numExpertsValue').textContent = this.value;
+            const k = parseInt(document.getElementById('granularity').value);
+            const m = parseInt(this.value);
+            if (k > m && k > 0) {
+                document.getElementById('granularity').value = m;
+                document.getElementById('granularityValue').textContent = m;
+            }
+            document.getElementById('granularity').max = m;
+            updateWarnings();
+        };
+        
+        document.getElementById('granularity').oninput = function() {
+            document.getElementById('granularityValue').textContent = this.value;
+            updateWarnings();
+        };
+        
+        document.getElementById('mlpRows').oninput = function() {
+            document.getElementById('mlpRowsValue').textContent = this.value;
+            updateWarnings();
+        };
+
+        document.getElementById('canonicalVectors').onchange = function() {
+            if (this.checked) {
+                document.getElementById('numExperts').value = 3;
+                document.getElementById('numExpertsValue').textContent = 3;
+                document.getElementById('numExperts').disabled = true;
+            } else {
+                document.getElementById('numExperts').disabled = false;
+            }
+            updateWarnings();
+        };
+
+        function updateWarnings() {
+            const m = parseInt(document.getElementById('numExperts').value);
+            const k = parseInt(document.getElementById('granularity').value);
+            const p = parseInt(document.getElementById('mlpRows').value);
+            const canonical = document.getElementById('canonicalVectors').checked;
+            
+            let warnings = [];
+            
+            if (k === 0) {
+                warnings.push("⚠️ k=0: No experts active (degenerate case)");
+            }
+            if (p === 0) {
+                warnings.push("ℹ️ p=0: Only routing cells, no MLP sub-partitioning");
+            }
+            if (canonical && m !== 3) {
+                warnings.push("🔧 Canonical mode forces m=3");
+            }
+            if (k > m) {
+                warnings.push("❌ k cannot exceed m");
+            }
+            
+            const warningPanel = document.getElementById('warningPanel');
+            if (warnings.length > 0) {
+                warningPanel.innerHTML = `<div class="warning">${warnings.join('<br>')}</div>`;
+            } else {
+                warningPanel.innerHTML = '';
+            }
+        }
+
+        // Enhanced color palettes for better distinction
+        const routingColorPalettes = [
+            '#FF0000', '#00FF00', '#0000FF', '#FFFF00', '#FF00FF', '#00FFFF',
+            '#FF8000', '#8000FF', '#FF0080', '#80FF00', '#0080FF', '#FF8080',
+            '#80FF80', '#8080FF', '#FFFF80', '#FF80FF', '#80FFFF', '#C0C0C0',
+            '#800000', '#008000', '#000080', '#808000', '#800080', '#008080'
+        ];
+
+        // Utility functions
+        function normalize(v) {
+            const norm = Math.sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+            return norm > 1e-10 ? [v[0]/norm, v[1]/norm, v[2]/norm] : [1, 0, 0];
+        }
+
+        function dot(a, b) {
+            return a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+        }
+
+        function randomPointOnSphere() {
+            const theta = Math.random() * 2 * Math.PI;
+            const phi = Math.acos(2 * Math.random() - 1);
+            return [
+                Math.sin(phi) * Math.cos(theta),
+                Math.sin(phi) * Math.sin(theta),
+                Math.cos(phi)
+            ];
+        }
+
+        function generateCanonicalVectors() {
+            return [
+                [1, 0, 0],  // e1
+                [0, 1, 0],  // e2
+                [0, 0, 1]   // e3
+            ];
+        }
+
+        function generateRoutingVectors(m, useCanonical = false) {
+            if (useCanonical) {
+                return generateCanonicalVectors();
+            }
+            
+            const vectors = [];
+            for (let i = 0; i < m; i++) {
+                let newVector;
+                let attempts = 0;
+                do {
+                    newVector = normalize(randomPointOnSphere());
+                    attempts++;
+                } while (attempts < 100 && vectors.some(v => Math.abs(dot(v, newVector)) > 0.95));
+                vectors.push(newVector);
+            }
+            return vectors;
+        }
+
+        function generateMLPMatrix(p) {
+            if (p === 0) return [];
+            
+            const matrix = [];
+            for (let i = 0; i < p; i++) {
+                matrix.push(normalize(randomPointOnSphere()));
+            }
+            return matrix;
+        }
+
+        function sphericalToCartesian(theta, phi) {
+            return [
+                Math.sin(phi) * Math.cos(theta),
+                Math.sin(phi) * Math.sin(theta),
+                Math.cos(phi)
+            ];
+        }
+
+        function getTopKExperts(point, routingVectors, k) {
+            if (k === 0) return [];
+            
+            const scores = routingVectors.map((r, i) => ({
+                index: i,
+                score: dot(r, point)
+            }));
+            scores.sort((a, b) => b.score - a.score);
+            return scores.slice(0, k).map(s => s.index).sort((a, b) => a - b);
+        }
+
+        function getMLPSignPattern(point, mlpMatrix) {
+            if (mlpMatrix.length === 0) return [];
+            return mlpMatrix.map(row => dot(row, point) >= 0 ? 1 : 0);
+        }
+
+        function generateSpherePartitionWithBoundaries(routingVectors, mlpMatrices, k, resolution) {
+            const cells = new Map();
+            const boundaryEdges = new Set();
+            const phi_steps = resolution;
+            const theta_steps = resolution * 2;
+            
+            const grid = [];
+
+            // Handle k=0 case
+            if (k === 0) {
+                // Create a single empty cell covering the whole sphere
+                for (let i = 0; i <= phi_steps; i++) {
+                    const phi = (i / phi_steps) * Math.PI;
+                    for (let j = 0; j <= theta_steps; j++) {
+                        const theta = (j / theta_steps) * 2 * Math.PI;
+                        const point = sphericalToCartesian(theta, phi);
+                        
+                        const cellInfo = {
+                            x: point[0], y: point[1], z: point[2],
+                            theta: theta, phi: phi,
+                            routingKey: 'empty',
+                            activeExperts: [],
+                            fullKey: 'empty'
+                        };
+                        
+                        if (!cells.has('empty')) {
+                            cells.set('empty', {
+                                points: [],
+                                routingKey: 'empty',
+                                activeExperts: [],
+                                fullKey: 'empty'
+                            });
+                        }
+                        
+                        cells.get('empty').points.push(cellInfo);
+                    }
+                }
+                return { cells, boundaryEdges };
+            }
+
+            // Generate grid points and classify them
+            for (let i = 0; i <= phi_steps; i++) {
+                grid[i] = [];
+                const phi = (i / phi_steps) * Math.PI;
+                for (let j = 0; j <= theta_steps; j++) {
+                    const theta = (j / theta_steps) * 2 * Math.PI;
+                    const point = sphericalToCartesian(theta, phi);
+                    
+                    const activeExperts = getTopKExperts(point, routingVectors, k);
+                    const routingKey = activeExperts.join(',');
+                    
+                    // Get MLP patterns for active experts
+                    let fullKey = routingKey;
+                    if (activeExperts.length > 0) {
+                        for (const expertIdx of activeExperts) {
+                            const mlpPattern = getMLPSignPattern(point, mlpMatrices[expertIdx]);
+                            fullKey += `|E${expertIdx}:${mlpPattern.join('')}`;
+                        }
+                    }
+                    
+                    const cellInfo = {
+                        x: point[0], y: point[1], z: point[2],
+                        theta: theta, phi: phi,
+                        routingKey: routingKey,
+                        activeExperts: activeExperts,
+                        fullKey: fullKey
+                    };
+                    
+                    grid[i][j] = cellInfo;
+                    
+                    if (!cells.has(fullKey)) {
+                        cells.set(fullKey, {
+                            points: [],
+                            routingKey: routingKey,
+                            activeExperts: activeExperts,
+                            fullKey: fullKey
+                        });
+                    }
+                    
+                    cells.get(fullKey).points.push(cellInfo);
+                }
+            }
+
+            // Find boundary edges
+            for (let i = 0; i < phi_steps; i++) {
+                for (let j = 0; j < theta_steps; j++) {
+                    const current = grid[i][j];
+                    const right = grid[i][(j + 1) % (theta_steps + 1)];
+                    const down = grid[i + 1] ? grid[i + 1][j] : null;
+                    
+                    if (right && current.fullKey !== right.fullKey) {
+                        boundaryEdges.add(`${current.x},${current.y},${current.z}-${right.x},${right.y},${right.z}`);
+                    }
+                    if (down && current.fullKey !== down.fullKey) {
+                        boundaryEdges.add(`${current.x},${current.y},${current.z}-${down.x},${down.y},${down.z}`);
+                    }
+                }
+            }
+
+            return { cells, boundaryEdges };
+        }
+
+        function getDistinctColorForRegion(routingKey, fullKey, routingColors) {
+            if (routingKey === 'empty') {
+                return '#404040'; // Gray for empty regions
+            }
+            
+            const baseColor = routingColors[routingKey];
+            
+            // Create variation for MLP subcells
+            let hash = 0;
+            for (let i = 0; i < fullKey.length; i++) {
+                hash = ((hash << 5) - hash + fullKey.charCodeAt(i)) & 0xffffffff;
+            }
+            
+            const baseRGB = hexToRgb(baseColor);
+            const lightnessFactor = 0.7 + 0.3 * ((Math.abs(hash) % 100) / 100);
+            
+            const r = Math.round(baseRGB.r * lightnessFactor);
+            const g = Math.round(baseRGB.g * lightnessFactor);
+            const b = Math.round(baseRGB.b * lightnessFactor);
+            
+            return `rgb(${r}, ${g}, ${b})`;
+        }
+
+        function hexToRgb(hex) {
+            const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+            return result ? {
+                r: parseInt(result[1], 16),
+                g: parseInt(result[2], 16),
+                b: parseInt(result[3], 16)
+            } : { r: 128, g: 128, b: 128 };
+        }
+
+        function generateVisualization() {
+            const m = parseInt(document.getElementById('numExperts').value);
+            const k = parseInt(document.getElementById('granularity').value);
+            const p = parseInt(document.getElementById('mlpRows').value);
+            const resolution = parseInt(document.getElementById('resolution').value);
+            const useCanonical = document.getElementById('canonicalVectors').checked;
+            const showBoundaries = document.getElementById('showBoundariesCheck').checked;
+
+            // Generate configuration
+            const routingVectors = generateRoutingVectors(m, useCanonical);
+            const mlpMatrices = [];
+            for (let i = 0; i < m; i++) {
+                mlpMatrices.push(generateMLPMatrix(p));
+            }
+
+            currentConfig = { routingVectors, mlpMatrices, k, m, p, useCanonical };
+
+            // Generate partition with boundaries
+            const { cells, boundaryEdges } = generateSpherePartitionWithBoundaries(
+                routingVectors, mlpMatrices, k, resolution
+            );
+
+            // Create distinct color mapping
+            const routingKeys = [...new Set([...cells.values()].map(cell => cell.routingKey))];
+            const routingColors = {};
+            routingKeys.forEach((key, index) => {
+                if (key === 'empty') {
+                    routingColors[key] = '#404040';
+                } else {
+                    routingColors[key] = routingColorPalettes[index % routingColorPalettes.length];
+                }
+            });
+
+            // Create plotly traces
+            const traces = [];
+            const legendGroups = new Set();
+            
+            // Add cell regions with distinct colors
+            for (const [fullKey, cell] of cells) {
+                const color = getDistinctColorForRegion(cell.routingKey, fullKey, routingColors);
+                const expertList = cell.activeExperts.length > 0 ? 
+                    cell.activeExperts.map(i => `E${i}`).join(',') : 'None';
+                const legendName = k === 0 ? 'No Experts (k=0)' : `Experts: [${expertList}]`;
+                
+                traces.push({
+                    type: 'scatter3d',
+                    mode: 'markers',
+                    x: cell.points.map(p => p.x),
+                    y: cell.points.map(p => p.y),
+                    z: cell.points.map(p => p.z),
+                    marker: {
+                        size: 3,
+                        color: color,
+                        opacity: 0.8,
+                        line: { width: 0.5, color: 'rgba(0,0,0,0.3)' }
+                    },
+                    name: legendName,
+                    legendgroup: cell.routingKey,
+                    hovertemplate: `<b>Active Experts:</b> [${expertList}]<br>` +
+                                  `<b>Points in cell:</b> ${cell.points.length}<br>` +
+                                  `<b>MLP Pattern:</b> ${p === 0 ? 'None (p=0)' : 'Included'}<extra></extra>`,
+                    showlegend: !legendGroups.has(cell.routingKey),
+                    visible: true
+                });
+                
+                legendGroups.add(cell.routingKey);
+            }
+
+            // Add boundary lines
+            if (showBoundaries && boundaryEdges.size > 0) {
+                const boundaryLines = Array.from(boundaryEdges).map(edge => {
+                    const [start, end] = edge.split('-');
+                    const [x1, y1, z1] = start.split(',').map(Number);
+                    const [x2, y2, z2] = end.split(',').map(Number);
+                    return { x1, y1, z1, x2, y2, z2 };
+                });
+
+                const bx = [], by = [], bz = [];
+                boundaryLines.forEach(line => {
+                    bx.push(line.x1, line.x2, null);
+                    by.push(line.y1, line.y2, null);
+                    bz.push(line.z1, line.z2, null);
+                });
+
+                traces.push({
+                    type: 'scatter3d',
+                    mode: 'lines',
+                    x: bx, y: by, z: bz,
+                    line: {
+                        color: 'black',
+                        width: 6
+                    },
+                    name: 'Region Boundaries',
+                    showlegend: false,
+                    hoverinfo: 'skip'
+                });
+            }
+
+            // Add routing vectors as labeled points
+            if (k > 0) {
+                for (let i = 0; i < routingVectors.length; i++) {
+                    const v = routingVectors[i];
+                    const label = useCanonical ? `e${i+1}` : `r${i}`;
+                    traces.push({
+                        type: 'scatter3d',
+                        mode: 'markers+text',
+                        x: [v[0] * 1.15],
+                        y: [v[1] * 1.15],
+                        z: [v[2] * 1.15],
+                        marker: {
+                            size: 12,
+                            color: 'white',
+                            symbol: 'diamond',
+                            line: { width: 2, color: 'black' }
+                        },
+                        text: [label],
+                        textposition: 'middle center',
+                        textfont: { size: 14, color: 'black' },
+                        name: `Routing Vector ${label}`,
+                        showlegend: false,
+                        hovertemplate: `<b>Routing Vector ${label}</b><br>` +
+                                      `Direction: [${v[0].toFixed(3)}, ${v[1].toFixed(3)}, ${v[2].toFixed(3)}]<extra></extra>`
+                    });
+                }
+            }
+
+            currentTraces = traces;
+
+            const configText = useCanonical ? 'Canonical (e_i)' : 'Random';
+            const degenerateInfo = [];
+            if (k === 0) degenerateInfo.push('k=0');
+            if (p === 0) degenerateInfo.push('p=0');
+            const degenerateText = degenerateInfo.length > 0 ? ` [${degenerateInfo.join(', ')}]` : '';
+
+            const layout = {
+                title: {
+                    text: `(${m},${k})-MoE Spherical Partition | p=${p} | ${configText}${degenerateText}`,
+                    font: { size: 18, color: 'white' },
+                    x: 0.5
+                },
+                scene: {
+                    xaxis: { 
+                        visible: false,
+                        range: [-1.3, 1.3]
+                    },
+                    yaxis: { 
+                        visible: false,
+                        range: [-1.3, 1.3]
+                    },
+                    zaxis: { 
+                        visible: false,
+                        range: [-1.3, 1.3]
+                    },
+                    aspectmode: 'cube',
+                    bgcolor: 'rgba(5,5,15,0.8)',
+                    camera: {
+                        eye: { x: 1.5, y: 1.5, z: 1.5 }
+                    }
+                },
+                paper_bgcolor: 'rgba(0,0,0,0)',
+                plot_bgcolor: 'rgba(0,0,0,0)',
+                font: { color: 'white', size: 12 },
+                margin: { l: 0, r: 0, t: 60, b: 0 },
+                height: 800,
+                legend: {
+                    x: 1.02,
+                    y: 1,
+                    bgcolor: 'rgba(0,0,0,0.7)',
+                    bordercolor: 'rgba(255,255,255,0.3)',
+                    borderwidth: 1
+                }
+            };
+
+            Plotly.newPlot(plotDiv, traces, layout, {
+                displayModeBar: true,
+                responsive: true,
+                displaylogo: false,
+                modeBarButtonsToRemove: ['autoScale2d']
+            });
+
+            // Update statistics and expert legend
+            updateStatistics(cells, routingKeys, m, k, p);
+            updateExpertLegend(routingKeys, routingColors, k);
+        }
+
+        function updateStatistics(cells, routingKeys, m, k, p) {
+            const routingCellCount = routingKeys.length;
+            const totalCellCount = cells.size;
+            const theoreticalRouting = k === 0 ? 1 : combination(m, k);
+            const theoreticalTotal = p === 0 ? theoreticalRouting : Math.pow(2, p) * theoreticalRouting;
+            
+            const statsDiv = document.querySelector('.stats-panel') || document.createElement('div');
+            statsDiv.className = 'stats-panel';
+            statsDiv.innerHTML = `
+                <div class="stat-item">
+                    <div class="stat-value">${routingCellCount}</div>
+                    <div class="stat-label">Routing Cells</div>
+                    <div style="font-size: 0.8em; color: #888;">max: ${theoreticalRouting}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${totalCellCount}</div>
+                    <div class="stat-label">Total MLP Cells</div>
+                    <div style="font-size: 0.8em; color: #888;">max: ${theoreticalTotal}</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${k === 0 ? 'N/A' : (100 * routingCellCount / theoreticalRouting).toFixed(1) + '%'}</div>
+                    <div class="stat-label">Routing Efficiency</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">${routingCellCount > 0 ? (totalCellCount / routingCellCount).toFixed(1) : 'N/A'}</div>
+                    <div class="stat-label">Avg MLP Cells/Routing</div>
+                </div>
+            `;
+            
+            if (!document.querySelector('.stats-panel')) {
+                plotDiv.appendChild(statsDiv);
+            }
+        }
+
+        function updateExpertLegend(routingKeys, routingColors, k) {
+            const legendDiv = document.getElementById('expertLegend');
+            
+            if (k === 0) {
+                legendDiv.innerHTML = `
+                    <h3>🎯 Degenerate Case: k=0 (No Active Experts)</h3>
+                    <p>When k=0, no experts are active anywhere on the sphere. This creates a uniform "empty" region.</p>
+                `;
+                return;
+            }
+            
+            legendDiv.innerHTML = `
+                <h3>🎯 Active Expert Combinations (${routingKeys.length} routing regions)</h3>
+                <div class="expert-grid">
+                    ${routingKeys.map(key => {
+                        if (key === 'empty') return '';
+                        return `
+                            <div class="expert-item" style="background-color: ${routingColors[key]}; color: ${getBestTextColor(routingColors[key])};">
+                                [${key.split(',').map(i => `E${i}`).join(', ')}]
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function getBestTextColor(hexColor) {
+            const rgb = hexToRgb(hexColor);
+            const brightness = (rgb.r * 299 + rgb.g * 587 + rgb.b * 114) / 1000;
+            return brightness > 128 ? 'black' : 'white';
+        }
+
+        function combination(n, k) {
+            if (k > n || k < 0) return 0;
+            if (k === 0 || k === n) return 1;
+            
+            let result = 1;
+            for (let i = 0; i < k; i++) {
+                result = result * (n - i) / (i + 1);
+            }
+            return Math.round(result);
+        }
+
+        function generateNewConfiguration() {
+            generateVisualization();
+        }
+
+        function generatePresetExamples() {
+            const presets = [
+                { m: 4, k: 2, p: 3, canonical: false, desc: "Simple 4-expert system" },
+                { m: 6, k: 2, p: 5, canonical: false, desc: "Balanced complexity" },
+                { m: 8, k: 3, p: 4, canonical: false, desc: "High routing diversity" },
+                { m: 5, k: 1, p: 6, canonical: false, desc: "Voronoi-like (k=1)" },
+                { m: 3, k: 2, p: 4, canonical: true, desc: "Canonical vectors" },
+                { m: 6, k: 2, p: 0, canonical: false, desc: "Routing only (p=0)" },
+                { m: 4, k: 0, p: 3, canonical: false, desc: "No experts (k=0)" },
+                { m: 10, k: 1, p: 1, canonical: false, desc: "Single neuron MLPs" }
+            ];
+            
+            const preset = presets[Math.floor(Math.random() * presets.length)];
+            
+            document.getElementById('numExperts').value = preset.m;
+            document.getElementById('numExpertsValue').textContent = preset.m;
+            document.getElementById('granularity').value = preset.k;
+            document.getElementById('granularityValue').textContent = preset.k;
+            document.getElementById('mlpRows').value = preset.p;
+            document.getElementById('mlpRowsValue').textContent = preset.p;
+            document.getElementById('canonicalVectors').checked = preset.canonical;
+            
+            if (preset.canonical) {
+                document.getElementById('numExperts').disabled = true;
+            } else {
+                document.getElementById('numExperts').disabled = false;
+            }
+            
+            updateWarnings();
+            
+            setTimeout(() => {
+                alert(`Loading preset: ${preset.desc}\n(m=${preset.m}, k=${preset.k}, p=${preset.p}, canonical=${preset.canonical})`);
+                generateVisualization();
+            }, 100);
+        }
+
+        function loadCanonicalExample() {
+            document.getElementById('numExperts').value = 3;
+            document.getElementById('numExpertsValue').textContent = 3;
+            document.getElementById('granularity').value = 2;
+            document.getElementById('granularityValue').textContent = 2;
+            document.getElementById('mlpRows').value = 3;
+            document.getElementById('mlpRowsValue').textContent = 3;
+            document.getElementById('canonicalVectors').checked = true;
+            document.getElementById('numExperts').disabled = true;
+            
+            updateWarnings();
+            generateVisualization();
+        }
+
+        function exportConfiguration() {
+            if (!currentConfig) {
+                alert('Generate a configuration first!');
+                return;
+            }
+            
+            const config = {
+                metadata: {
+                    title: "MoE Spherical Partition Configuration",
+                    timestamp: new Date().toISOString(),
+                    parameters: {
+                        m: currentConfig.m,
+                        k: currentConfig.k,
+                        p: currentConfig.p,
+                        canonical: currentConfig.useCanonical
+                    }
+                },
+                routingVectors: currentConfig.routingVectors,
+                mlpMatrices: currentConfig.mlpMatrices,
+                description: currentConfig.useCanonical ? 
+                    `Canonical (${currentConfig.m},${currentConfig.k})-MoE with ${currentConfig.p} MLP neurons` :
+                    `Random (${currentConfig.m},${currentConfig.k})-MoE with ${currentConfig.p} MLP neurons`
+            };
+            
+            const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const canonicalSuffix = currentConfig.useCanonical ? '_canonical' : '';
+            a.download = `moe_config_m${currentConfig.m}_k${currentConfig.k}_p${currentConfig.p}${canonicalSuffix}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showHelp() {
+            alert(`🧠 MoE Spherical Partition Visualizer Help
+
+Parameters:
+• m: Number of experts (routing vectors)
+• k: Number of active experts per region (0 ≤ k ≤ m)
+• p: Number of MLP neurons per expert (0 = routing only)
+
+Special Cases:
+• k=0: No experts active (degenerate case)
+• p=0: Only routing partitions, no MLP sub-cells
+• Canonical: Uses orthogonal vectors e₁, e₂, e₃ (forces m=3)
+
+Controls:
+• Drag to rotate, scroll to zoom
+• Toggle boundaries on/off
+• Export configurations as JSON
+• Load preset examples
+
+Theory:
+Each point on S² is assigned to its k highest-scoring experts.
+Within each routing region, MLP activations create sub-partitions.
+Total cells ≤ 2ᵖ × C(m,k) where C(m,k) is binomial coefficient.`);
+        }
+
+        // Initialize
+        updateWarnings();
+        generateVisualization();
+    </script>
+</body>
+</html>
